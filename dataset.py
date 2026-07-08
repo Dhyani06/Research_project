@@ -6,7 +6,12 @@ from torch.utils.data import Dataset
 
 
 class FSRCNNDataset(Dataset):
-    """Dataset that pairs HR and LR images using the dataset naming convention."""
+    """
+    Dataset that pairs HR and LR images using the dataset naming convention.
+
+    Images are converted to YCbCr and only the Y (luminance) channel is used,
+    matching the FSRCNN paper's training and evaluation protocol.
+    """
 
     def __init__(self, hr_dir: str, lr_dir: str, scale: int = 2, transform=None):
         self.hr_dir = Path(hr_dir)
@@ -56,8 +61,10 @@ class FSRCNNDataset(Dataset):
 
     def __getitem__(self, idx: int):
         hr_path, lr_path = self.samples[idx]
-        hr_image = Image.open(hr_path).convert("RGB")
-        lr_image = Image.open(lr_path).convert("RGB")
+        # Convert to YCbCr and extract only the Y (luminance) channel.
+        # This matches the FSRCNN paper: model is trained/evaluated on Y-channel only.
+        hr_image = Image.open(hr_path).convert("YCbCr").split()[0]  # Y channel, mode "L"
+        lr_image = Image.open(lr_path).convert("YCbCr").split()[0]  # Y channel, mode "L"
         if self.transform:
             return self.transform(hr_image, lr_image)
         return hr_image, lr_image

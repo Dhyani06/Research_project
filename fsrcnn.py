@@ -7,12 +7,20 @@ import torch.nn.functional as F
 
 
 class FSRCNN(nn.Module):
-    """A compact implementation of the FSRCNN super-resolution model."""
+    """
+    FSRCNN super-resolution model (Dong et al., 2016).
+
+    Operates on the Y (luminance) channel of YCbCr images, matching the
+    paper's training and evaluation protocol.  Input and output are single-
+    channel tensors normalised to [0, 1].
+    """
 
     def __init__(
         self,
         scale_factor: int = 2,
-        num_channels: int = 3,
+        # num_channels is kept at 1 (Y-channel) to match the paper.
+        # Pass num_channels=3 only if you intentionally want RGB training.
+        num_channels: int = 1,
         d: int = 56,
         s: int = 12,
         m: int = 4,
@@ -50,6 +58,14 @@ class FSRCNN(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # Bicubic upscale as residual baseline — the network learns only the
+        # high-frequency residual.  This ensures outputs start near the correct
+        # pixel range even with near-zero weights, fixing the vanishing-output
+        # problem without requiring special initialisation tricks.
+        identity = torch.nn.functional.interpolate(
+            x, scale_factor=self.scale_factor, mode="bicubic", align_corners=False
+        )
+
         x = self.first_act(self.first(x))
         x = self.shrink_act(self.shrink(x))
 
@@ -58,18 +74,22 @@ class FSRCNN(nn.Module):
 
         x = self.expand_act(self.expand(x))
         x = self.deconv(x)
+
+        # Add residual and clamp to valid range
+        x = x + identity
+        x = torch.clamp(x, 0.0, 1.0)
         return x
 
 
 def init_weights(model: nn.Module) -> None:
+    """
+    Initialise weights:
+    - Conv2d / ConvTranspose2d : kaiming normal
+    - PReLU                    : default (0.25)
+    """
     for m in model.modules():
-        if isinstance(m, nn.Conv2d):
+        if isinstance(m, (nn.Conv2d, nn.ConvTranspose2d)):
             nn.init.kaiming_normal_(m.weight, mode="fan_out", nonlinearity="relu")
-            if m.bias is not None:
-                nn.init.constant_(m.bias, 0)
-        elif isinstance(m, nn.ConvTranspose2d):
-            # Paper: initialized with a normal distribution with mean 0 and standard deviation 0.001
-            nn.init.normal_(m.weight, mean=0.0, std=0.001)
             if m.bias is not None:
                 nn.init.constant_(m.bias, 0)
         elif isinstance(m, nn.BatchNorm2d):
