@@ -165,22 +165,23 @@ def main():
     )
 
     # num_channels=1: train on Y-channel only, matching the paper
+    # Improved architecture: d=64, s=16, m=6, kernel=7
     model = FSRCNN(scale_factor=args.scale, num_channels=1).to(device)
     init_weights(model)
 
     criterion = nn.MSELoss()  # Paper uses MSE loss
     optimizer = optim.Adam(
         [
-            {"params": model.first.parameters(), "lr": args.lr},
-            {"params": model.first_act.parameters(), "lr": args.lr},
-            {"params": model.shrink.parameters(), "lr": args.lr},
+            {"params": model.first.parameters(),      "lr": args.lr},
+            {"params": model.first_act.parameters(),  "lr": args.lr},
+            {"params": model.shrink.parameters(),     "lr": args.lr},
             {"params": model.shrink_act.parameters(), "lr": args.lr},
             {"params": model.map_layers.parameters(), "lr": args.lr},
-            {"params": model.map_act.parameters(), "lr": args.lr},
-            {"params": model.expand.parameters(), "lr": args.lr},
+            {"params": model.map_act.parameters(),    "lr": args.lr},
+            {"params": model.expand.parameters(),     "lr": args.lr},
             {"params": model.expand_act.parameters(), "lr": args.lr},
             # Paper uses 10x smaller lr for the deconv layer
-            {"params": model.deconv.parameters(), "lr": args.lr * 0.1},
+            {"params": model.deconv.parameters(),     "lr": args.lr * 0.1},
         ]
     )
 

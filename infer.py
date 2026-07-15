@@ -112,6 +112,7 @@ def main():
     print(f"Using device: {device}")
 
     # ---- load model --------------------------------------------------------
+    # Improved architecture: d=64, s=16, m=6, kernel=7
     model = FSRCNN(scale_factor=args.scale, num_channels=1).to(device)
     ckpt = torch.load(args.checkpoint, map_location=device)
     model.load_state_dict(ckpt)
